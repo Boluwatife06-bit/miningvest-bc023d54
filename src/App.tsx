@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Deposit from "./pages/Deposit";
 import Profile from "./pages/Profile";
 import MyInvestments from "./pages/MyInvestments";
+import Withdrawal from "./pages/Withdrawal";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,7 @@ const AppRoutes = () => {
       <Route path="/deposit" element={<ProtectedRoute><Deposit /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/investments" element={<ProtectedRoute><MyInvestments /></ProtectedRoute>} />
+      <Route path="/withdraw" element={<ProtectedRoute><Withdrawal /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
