@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Wallet, User, LogOut, Pickaxe, BarChart3, ShieldCheck } from "lucide-react";
+import { Home, Wallet, User, LogOut, ArrowUpFromLine, BarChart3, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,8 @@ const BottomNav = () => {
   const navItems = [
     { path: "/home", icon: Home, label: "Home" },
     { path: "/deposit", icon: Wallet, label: "Deposit" },
-    { path: "/investments", icon: BarChart3, label: "Investments" },
+    { path: "/withdraw", icon: ArrowUpFromLine, label: "Withdraw" },
+    { path: "/investments", icon: BarChart3, label: "Invest" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
 
