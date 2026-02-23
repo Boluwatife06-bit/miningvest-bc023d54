@@ -17,9 +17,9 @@ interface Deposit {
   created_at: string;
 }
 
-const BANK_NAME = "Opay";
-const ACCOUNT_NUMBER = "8107542964";
-const ACCOUNT_NAME = "Ajayi Boluwatife";
+const BANK_NAME = "MONIEPOINT MICROFINANCE BANK";
+const ACCOUNT_NUMBER = "6172438015";
+const ACCOUNT_NAME = "MONNIFY / Bamboo-Bol";
 
 const Deposit = () => {
   const { profile, refreshProfile } = useAuth();
