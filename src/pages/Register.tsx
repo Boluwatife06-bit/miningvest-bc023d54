@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { phoneToEmail, validateNigerianPhone, formatPhone } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,6 @@ import { Eye, EyeOff, Pickaxe } from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const referralCode = searchParams.get("ref") || "";
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -19,10 +17,6 @@ const Register = () => {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const generateReferralCode = () => {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +41,6 @@ const Register = () => {
     setLoading(true);
     const normalizedPhone = formatPhone(phone);
     const email = phoneToEmail(normalizedPhone);
-    const newReferralCode = generateReferralCode();
 
     // Check if phone already registered
     const { data: existingProfile } = await supabase
@@ -71,23 +64,11 @@ const Register = () => {
     }
 
     if (data.user) {
-      // Find referrer
-      let referrerId: string | null = null;
-      if (referralCode) {
-        const { data: referrer } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .eq("referral_code", referralCode)
-          .maybeSingle();
-        if (referrer) referrerId = referrer.user_id;
-      }
-
       const { error: profileError } = await supabase.from("profiles").insert({
         user_id: data.user.id,
         phone: normalizedPhone,
         full_name: fullName,
-        referral_code: newReferralCode,
-        referred_by: referrerId,
+        referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
         balance: 0,
         referral_earnings: 0,
       });
@@ -96,22 +77,6 @@ const Register = () => {
         toast({ title: "Profile creation failed", description: profileError.message, variant: "destructive" });
         setLoading(false);
         return;
-      }
-
-      // Credit referrer ₦1,000
-      if (referrerId) {
-        const { data: referrerProfile } = await supabase
-          .from("profiles")
-          .select("balance, referral_earnings")
-          .eq("user_id", referrerId)
-          .single();
-
-        if (referrerProfile) {
-          await supabase.from("profiles").update({
-            balance: referrerProfile.balance + 1000,
-            referral_earnings: referrerProfile.referral_earnings + 1000,
-          }).eq("user_id", referrerId);
-        }
       }
 
       toast({ title: "Registration successful! 🎉", description: "Welcome to MiningVest" });
@@ -134,11 +99,6 @@ const Register = () => {
 
         <div className="bg-card border border-border rounded-2xl p-6 card-glow">
           <h2 className="text-xl font-bold text-foreground mb-6">Create Account</h2>
-          {referralCode && (
-            <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/30 text-sm text-primary">
-              🎁 Referral code applied: <strong>{referralCode}</strong>
-            </div>
-          )}
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <Label className="text-foreground">Full Name</Label>
