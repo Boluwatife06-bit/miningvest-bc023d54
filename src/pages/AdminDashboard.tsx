@@ -37,7 +37,7 @@ interface AdminUser {
   phone: string;
   full_name: string | null;
   balance: number;
-  referral_earnings: number;
+  
   created_at: string;
 }
 
@@ -438,7 +438,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
-                  <p className="text-[10px] text-muted-foreground">Referrals: {formatNaira(u.referral_earnings)}</p>
+                  
                 </div>
               </div>
             ))}

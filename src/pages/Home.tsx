@@ -5,7 +5,7 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { Pickaxe, TrendingUp, Users, Copy, Zap } from "lucide-react";
+import { Pickaxe, TrendingUp, Users, Zap } from "lucide-react";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 interface Product {
@@ -62,13 +62,6 @@ const Home = () => {
     setInvesting(null);
   };
 
-  const referralLink = profile ? `${window.location.origin}/register?ref=${profile.referral_code}` : "";
-
-  const copyReferralLink = () => {
-    navigator.clipboard.writeText(referralLink);
-    toast({ title: "Referral link copied! 📋" });
-  };
-
   const productIcons = [Pickaxe, Zap, TrendingUp, Users];
 
   return (
@@ -99,23 +92,10 @@ const Home = () => {
 
       {/* Balance Card */}
       <div className="mx-4 mt-4 p-4 rounded-2xl balance-card">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">Total Balance</p>
-            <p className="text-2xl font-bold text-primary mt-0.5">{formatNaira(profile?.balance ?? 0)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Referral Earnings</p>
-            <p className="text-lg font-bold text-foreground mt-0.5">{formatNaira(profile?.referral_earnings ?? 0)}</p>
-          </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Total Balance</p>
+          <p className="text-2xl font-bold text-primary mt-0.5">{formatNaira(profile?.balance ?? 0)}</p>
         </div>
-        {profile && (
-          <button onClick={copyReferralLink} className="mt-3 w-full flex items-center gap-2 p-2 rounded-lg bg-background/40 border border-border hover:border-primary/40 transition-all text-left">
-            <Copy className="w-4 h-4 text-primary flex-shrink-0" />
-            <span className="text-xs text-muted-foreground truncate flex-1">{referralLink}</span>
-            <span className="text-xs text-primary font-medium">Copy</span>
-          </button>
-        )}
       </div>
 
       {/* Products */}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { User, Copy, Lock, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Lock, Save, ChevronDown, ChevronUp } from "lucide-react";
 
 const Profile = () => {
   const { profile, refreshProfile } = useAuth();
@@ -22,13 +22,6 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
-
-  const referralLink = profile ? `${window.location.origin}/register?ref=${profile.referral_code}` : "";
-
-  const copyReferralLink = () => {
-    navigator.clipboard.writeText(referralLink);
-    toast({ title: "Referral link copied! 📋" });
-  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,36 +84,10 @@ const Profile = () => {
           <div className="flex-1 min-w-0">
             <p className="font-bold text-foreground truncate">{profile?.full_name || "User"}</p>
             <p className="text-sm text-muted-foreground">{profile?.phone}</p>
-            <div className="flex gap-4 mt-1">
-              <div>
-                <span className="text-xs text-muted-foreground">Balance: </span>
-                <span className="text-xs font-semibold text-primary">{formatNaira(profile?.balance ?? 0)}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Referrals: </span>
-                <span className="text-xs font-semibold text-primary">{formatNaira(profile?.referral_earnings ?? 0)}</span>
-              </div>
+            <div className="mt-1">
+              <span className="text-xs text-muted-foreground">Balance: </span>
+              <span className="text-xs font-semibold text-primary">{formatNaira(profile?.balance ?? 0)}</span>
             </div>
-          </div>
-        </div>
-
-        {/* Referral */}
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-            <Copy className="w-4 h-4 text-primary" /> Referral Program
-          </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Share your link — earn <span className="text-primary font-semibold">₦1,000</span> for every friend who joins
-          </p>
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary border border-border">
-            <span className="text-xs text-muted-foreground flex-1 truncate">{referralLink}</span>
-            <button onClick={copyReferralLink} className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-all">
-              <Copy className="w-4 h-4 text-primary" />
-            </button>
-          </div>
-          <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
-            <span className="text-xs text-muted-foreground">Total referral earnings</span>
-            <span className="font-bold text-primary">{formatNaira(profile?.referral_earnings ?? 0)}</span>
           </div>
         </div>
 
