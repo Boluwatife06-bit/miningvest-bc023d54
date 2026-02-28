@@ -3,16 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatNaira } from "@/lib/supabase-helpers";
 import BottomNav from "@/components/BottomNav";
+import { Progress } from "@/components/ui/progress";
 import { BarChart3, CheckCircle, Clock, Pickaxe } from "lucide-react";
 
 interface Investment {
   id: string;
   amount: number;
   roi: number;
+  roi_paid: number;
   status: string;
   invested_at: string;
   completed_at: string | null;
-  products: { name: string } | null;
+  products: { name: string; duration_days: number } | null;
 }
 
 const MyInvestments = () => {
@@ -24,7 +26,7 @@ const MyInvestments = () => {
     if (!profile) return;
     supabase
       .from("investments")
-      .select("*, products(name)")
+      .select("*, products(name, duration_days)")
       .eq("user_id", profile.user_id)
       .order("invested_at", { ascending: false })
       .then(({ data }) => {
@@ -91,9 +93,19 @@ const MyInvestments = () => {
                       <p className="font-bold text-foreground">{formatNaira(inv.amount)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Expected ROI</p>
-                      <p className="font-bold text-primary">{formatNaira(inv.roi)}</p>
+                      <p className="text-xs text-muted-foreground">Daily ROI</p>
+                      <p className="font-bold text-primary">{formatNaira(Math.floor(inv.roi / (inv.products?.duration_days || 30)))}/day</p>
                     </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Progress: {formatNaira(inv.roi_paid)} / {formatNaira(inv.roi)}</span>
+                      <span>{Math.min(100, Math.round((inv.roi_paid / inv.roi) * 100))}%</span>
+                    </div>
+                    <Progress value={Math.min(100, (inv.roi_paid / inv.roi) * 100)} className="h-2" />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Day {Math.min(inv.products?.duration_days || 30, Math.ceil(inv.roi_paid / Math.floor(inv.roi / (inv.products?.duration_days || 30))) || 0)} of {inv.products?.duration_days || 30}
+                    </p>
                   </div>
                 </div>
               ))}
