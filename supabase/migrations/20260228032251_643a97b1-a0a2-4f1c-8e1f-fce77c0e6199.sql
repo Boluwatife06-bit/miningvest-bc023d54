@@ -1,0 +1,1 @@
+ALTER TABLE public.investments ADD COLUMN IF NOT EXISTS roi_paid bigint NOT NULL DEFAULT 0;
