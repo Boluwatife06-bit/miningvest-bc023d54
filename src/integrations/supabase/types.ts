@@ -59,6 +59,7 @@ export type Database = {
           invested_at: string
           product_id: string
           roi: number
+          roi_paid: number
           status: string
           user_id: string
         }
@@ -70,6 +71,7 @@ export type Database = {
           invested_at?: string
           product_id: string
           roi: number
+          roi_paid?: number
           status?: string
           user_id: string
         }
@@ -81,6 +83,7 @@ export type Database = {
           invested_at?: string
           product_id?: string
           roi?: number
+          roi_paid?: number
           status?: string
           user_id?: string
         }
