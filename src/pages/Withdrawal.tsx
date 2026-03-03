@@ -45,8 +45,8 @@ const Withdrawal = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseInt(amount, 10);
-    if (!amountNum || amountNum < 100) {
-      toast({ title: "Invalid amount", description: "Minimum withdrawal is ₦100", variant: "destructive" });
+    if (!amountNum || amountNum < 10000) {
+      toast({ title: "Invalid amount", description: "Minimum withdrawal is ₦10,000", variant: "destructive" });
       return;
     }
     if (amountNum > (profile?.balance ?? 0)) {
