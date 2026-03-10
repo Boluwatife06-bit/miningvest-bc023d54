@@ -251,6 +251,69 @@ const AdminDashboard = () => {
     setProcessing(null);
   };
 
+  const revertDeposit = async (deposit: AdminDeposit) => {
+    if (processing) return;
+    setProcessing(deposit.id);
+
+    if (deposit.status === "approved") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", deposit.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance - deposit.amount }).eq("user_id", deposit.user_id);
+      }
+    }
+
+    await supabase.from("deposits").update({ status: "pending" }).eq("id", deposit.id);
+    toast({ title: "Deposit reverted to pending" });
+    fetchDeposits();
+    setProcessing(null);
+  };
+
+  const revertWithdrawal = async (w: AdminWithdrawal) => {
+    if (processing) return;
+    setProcessing(w.id);
+
+    if (w.status === "approved") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", w.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance + w.amount }).eq("user_id", w.user_id);
+      }
+    }
+
+    await supabase.from("withdrawals").update({ status: "pending" }).eq("id", w.id);
+    toast({ title: "Withdrawal reverted to pending" });
+    fetchWithdrawals();
+    setProcessing(null);
+  };
+
+  const revertInvestment = async (inv: AdminInvestment) => {
+    if (processing) return;
+    setProcessing(inv.id);
+
+    if (inv.status === "completed") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", inv.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance - inv.roi }).eq("user_id", inv.user_id);
+      }
+    }
+
+    await supabase.from("investments").update({ status: "active", completed_at: null }).eq("id", inv.id);
+    toast({ title: "Investment reverted to active" });
+    fetchInvestments();
+    setProcessing(null);
+  };
+
   const stats = {
     totalUsers: users.length,
     pendingDeposits: deposits.filter((d) => d.status === "pending").length,
