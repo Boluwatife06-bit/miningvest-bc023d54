@@ -37,7 +37,6 @@ interface AdminUser {
   phone: string;
   full_name: string | null;
   balance: number;
-  
   created_at: string;
 }
 
@@ -55,12 +54,25 @@ interface AdminWithdrawal {
 
 const AdminDashboard = () => {
   const { isAdmin, loading } = useAuth();
+  const [adminVerified, setAdminVerified] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>("deposits");
   const [deposits, setDeposits] = useState<AdminDeposit[]>([]);
   const [investments, setInvestments] = useState<AdminInvestment[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+
+  // Server-side admin verification
+  useEffect(() => {
+    const verifyAdmin = async () => {
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: (await supabase.auth.getUser()).data.user?.id ?? "",
+        _role: "admin",
+      });
+      setAdminVerified(!!data && !error);
+    };
+    if (!loading) verifyAdmin();
+  }, [loading]);
 
   const fetchDeposits = async () => {
     const { data: deps } = await supabase
@@ -70,7 +82,6 @@ const AdminDashboard = () => {
       .limit(100);
     if (!deps) return;
 
-    // Enrich with profiles
     const userIds = [...new Set(deps.map((d) => d.user_id))];
     const { data: profs } = await supabase
       .from("profiles")
@@ -127,32 +138,30 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    if (!isAdmin) return;
-    fetchDeposits();
-    fetchWithdrawals();
-    fetchInvestments();
-    fetchUsers();
-  }, [isAdmin]);
+    if (adminVerified) {
+      fetchDeposits();
+      fetchWithdrawals();
+      fetchInvestments();
+      fetchUsers();
+    }
+  }, [adminVerified]);
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!isAdmin) return <Navigate to="/home" replace />;
+  if (loading || adminVerified === null) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!isAdmin || !adminVerified) return <Navigate to="/home" replace />;
+
+  const adjustBalance = async (userId: string, amount: number): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("admin_adjust_balance", {
+      p_user_id: userId,
+      p_amount: amount,
+    });
+    if (error) return false;
+    const result = data as { success: boolean };
+    return result?.success ?? false;
+  };
 
   const approveDeposit = async (deposit: AdminDeposit) => {
     if (processing) return;
     setProcessing(deposit.id);
-
-    // Get user's current balance
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("user_id", deposit.user_id)
-      .single();
-
-    if (!profile) {
-      toast({ title: "User profile not found", variant: "destructive" });
-      setProcessing(null);
-      return;
-    }
 
     const { error: depositError } = await supabase
       .from("deposits")
@@ -160,12 +169,19 @@ const AdminDashboard = () => {
       .eq("id", deposit.id);
 
     if (depositError) {
-      toast({ title: "Error", description: depositError.message, variant: "destructive" });
+      toast({ title: "Error", description: "Failed to approve deposit. Please try again.", variant: "destructive" });
       setProcessing(null);
       return;
     }
 
-    await supabase.from("profiles").update({ balance: profile.balance + deposit.amount }).eq("user_id", deposit.user_id);
+    const success = await adjustBalance(deposit.user_id, deposit.amount);
+    if (!success) {
+      await supabase.from("deposits").update({ status: "pending" }).eq("id", deposit.id);
+      toast({ title: "Error", description: "Failed to credit balance. Please try again.", variant: "destructive" });
+      setProcessing(null);
+      return;
+    }
+
     toast({ title: `Deposit approved — ${formatNaira(deposit.amount)} credited ✅` });
     fetchDeposits();
     setProcessing(null);
@@ -184,20 +200,14 @@ const AdminDashboard = () => {
     if (processing) return;
     setProcessing(inv.id);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("user_id", inv.user_id)
-      .single();
-
-    if (!profile) {
-      toast({ title: "User not found", variant: "destructive" });
+    const success = await adjustBalance(inv.user_id, inv.roi);
+    if (!success) {
+      toast({ title: "Error", description: "Failed to credit ROI. Please try again.", variant: "destructive" });
       setProcessing(null);
       return;
     }
 
     await supabase.from("investments").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", inv.id);
-    await supabase.from("profiles").update({ balance: profile.balance + inv.roi }).eq("user_id", inv.user_id);
     toast({ title: `Investment completed — ROI of ${formatNaira(inv.roi)} credited ✅` });
     fetchInvestments();
     setProcessing(null);
@@ -207,19 +217,8 @@ const AdminDashboard = () => {
     if (processing) return;
     setProcessing(w.id);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("user_id", w.user_id)
-      .single();
-
-    if (!profile) {
-      toast({ title: "User not found", variant: "destructive" });
-      setProcessing(null);
-      return;
-    }
-
-    if (profile.balance < w.amount) {
+    const success = await adjustBalance(w.user_id, -w.amount);
+    if (!success) {
       toast({ title: "User has insufficient balance", variant: "destructive" });
       setProcessing(null);
       return;
@@ -231,12 +230,13 @@ const AdminDashboard = () => {
       .eq("id", w.id);
 
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      // Rollback balance
+      await adjustBalance(w.user_id, w.amount);
+      toast({ title: "Error", description: "Failed to approve withdrawal. Please try again.", variant: "destructive" });
       setProcessing(null);
       return;
     }
 
-    await supabase.from("profiles").update({ balance: profile.balance - w.amount }).eq("user_id", w.user_id);
     toast({ title: `Withdrawal approved — ${formatNaira(w.amount)} deducted ✅` });
     fetchWithdrawals();
     setProcessing(null);
@@ -256,13 +256,11 @@ const AdminDashboard = () => {
     setProcessing(deposit.id);
 
     if (deposit.status === "approved") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("user_id", deposit.user_id)
-        .single();
-      if (profile) {
-        await supabase.from("profiles").update({ balance: profile.balance - deposit.amount }).eq("user_id", deposit.user_id);
+      const success = await adjustBalance(deposit.user_id, -deposit.amount);
+      if (!success) {
+        toast({ title: "Error", description: "Failed to revert balance. User may have insufficient funds.", variant: "destructive" });
+        setProcessing(null);
+        return;
       }
     }
 
@@ -277,14 +275,7 @@ const AdminDashboard = () => {
     setProcessing(w.id);
 
     if (w.status === "approved") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("user_id", w.user_id)
-        .single();
-      if (profile) {
-        await supabase.from("profiles").update({ balance: profile.balance + w.amount }).eq("user_id", w.user_id);
-      }
+      await adjustBalance(w.user_id, w.amount);
     }
 
     await supabase.from("withdrawals").update({ status: "pending" }).eq("id", w.id);
@@ -298,13 +289,11 @@ const AdminDashboard = () => {
     setProcessing(inv.id);
 
     if (inv.status === "completed") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("user_id", inv.user_id)
-        .single();
-      if (profile) {
-        await supabase.from("profiles").update({ balance: profile.balance - inv.roi }).eq("user_id", inv.user_id);
+      const success = await adjustBalance(inv.user_id, -inv.roi);
+      if (!success) {
+        toast({ title: "Error", description: "Failed to revert ROI. User may have insufficient funds.", variant: "destructive" });
+        setProcessing(null);
+        return;
       }
     }
 
@@ -542,7 +531,6 @@ const AdminDashboard = () => {
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
-                  
                 </div>
               </div>
             ))}
