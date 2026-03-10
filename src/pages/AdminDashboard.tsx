@@ -408,6 +408,17 @@ const AdminDashboard = () => {
                     </Button>
                   </div>
                 )}
+                {(d.status === "approved" || d.status === "rejected") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertDeposit(d)}
+                    disabled={!!processing}
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Pending
+                  </Button>
+                )}
               </div>
             ))}
           </div>
