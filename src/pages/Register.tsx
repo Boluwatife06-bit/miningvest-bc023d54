@@ -58,7 +58,7 @@ const Register = () => {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+      toast({ title: "Registration failed", description: "Something went wrong. Please try again.", variant: "destructive" });
       setLoading(false);
       return;
     }
