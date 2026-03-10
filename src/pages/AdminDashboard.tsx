@@ -5,7 +5,7 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine } from "lucide-react";
+import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 type Tab = "deposits" | "withdrawals" | "investments" | "users";
@@ -251,6 +251,69 @@ const AdminDashboard = () => {
     setProcessing(null);
   };
 
+  const revertDeposit = async (deposit: AdminDeposit) => {
+    if (processing) return;
+    setProcessing(deposit.id);
+
+    if (deposit.status === "approved") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", deposit.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance - deposit.amount }).eq("user_id", deposit.user_id);
+      }
+    }
+
+    await supabase.from("deposits").update({ status: "pending" }).eq("id", deposit.id);
+    toast({ title: "Deposit reverted to pending" });
+    fetchDeposits();
+    setProcessing(null);
+  };
+
+  const revertWithdrawal = async (w: AdminWithdrawal) => {
+    if (processing) return;
+    setProcessing(w.id);
+
+    if (w.status === "approved") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", w.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance + w.amount }).eq("user_id", w.user_id);
+      }
+    }
+
+    await supabase.from("withdrawals").update({ status: "pending" }).eq("id", w.id);
+    toast({ title: "Withdrawal reverted to pending" });
+    fetchWithdrawals();
+    setProcessing(null);
+  };
+
+  const revertInvestment = async (inv: AdminInvestment) => {
+    if (processing) return;
+    setProcessing(inv.id);
+
+    if (inv.status === "completed") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", inv.user_id)
+        .single();
+      if (profile) {
+        await supabase.from("profiles").update({ balance: profile.balance - inv.roi }).eq("user_id", inv.user_id);
+      }
+    }
+
+    await supabase.from("investments").update({ status: "active", completed_at: null }).eq("id", inv.id);
+    toast({ title: "Investment reverted to active" });
+    fetchInvestments();
+    setProcessing(null);
+  };
+
   const stats = {
     totalUsers: users.length,
     pendingDeposits: deposits.filter((d) => d.status === "pending").length,
@@ -345,6 +408,17 @@ const AdminDashboard = () => {
                     </Button>
                   </div>
                 )}
+                {(d.status === "approved" || d.status === "rejected") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertDeposit(d)}
+                    disabled={!!processing}
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Pending
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -353,10 +427,10 @@ const AdminDashboard = () => {
         {/* Withdrawals Tab */}
         {tab === "withdrawals" && (
           <div className="space-y-3">
-            {withdrawals.filter((w) => w.status === "pending").length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No pending withdrawals</p>
+            {withdrawals.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No withdrawals yet</p>
             )}
-            {withdrawals.filter((w) => w.status === "pending").map((w) => (
+            {withdrawals.map((w) => (
               <div key={w.id} className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -365,30 +439,45 @@ const AdminDashboard = () => {
                     <p className="text-xs text-muted-foreground">{w.bank_name} • {w.account_number}</p>
                     <p className="text-xs text-muted-foreground">Acct: {w.account_name}</p>
                   </div>
-                  <span className="status-badge-pending text-[10px] font-medium px-2 py-1 rounded-full">Pending</span>
+                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${w.status === "approved" ? "status-badge-completed" : w.status === "rejected" ? "status-badge-rejected" : "status-badge-pending"}`}>
+                    {w.status}
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-3">
                   {new Date(w.created_at).toLocaleString("en-NG")}
                 </p>
-                <div className="flex gap-2">
+                {w.status === "pending" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 gold-gradient text-primary-foreground font-bold text-xs h-8"
+                      onClick={() => approveWithdrawal(w)}
+                      disabled={!!processing}
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1 font-bold text-xs h-8"
+                      onClick={() => rejectWithdrawal(w.id)}
+                      disabled={!!processing}
+                    >
+                      <XCircle className="w-3 h-3 mr-1" /> Reject
+                    </Button>
+                  </div>
+                )}
+                {(w.status === "approved" || w.status === "rejected") && (
                   <Button
                     size="sm"
-                    className="flex-1 gold-gradient text-primary-foreground font-bold text-xs h-8"
-                    onClick={() => approveWithdrawal(w)}
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertWithdrawal(w)}
                     disabled={!!processing}
                   >
-                    <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Pending
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="flex-1 font-bold text-xs h-8"
-                    onClick={() => rejectWithdrawal(w.id)}
-                    disabled={!!processing}
-                  >
-                    <XCircle className="w-3 h-3 mr-1" /> Reject
-                  </Button>
-                </div>
+                )}
               </div>
             ))}
           </div>
@@ -397,10 +486,10 @@ const AdminDashboard = () => {
         {/* Investments Tab */}
         {tab === "investments" && (
           <div className="space-y-3">
-            {investments.filter((i) => i.status === "active").length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No active investments</p>
+            {investments.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No investments yet</p>
             )}
-            {investments.filter((i) => i.status === "active").map((inv) => (
+            {investments.map((inv) => (
               <div key={inv.id} className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -408,19 +497,34 @@ const AdminDashboard = () => {
                     <p className="text-xs text-muted-foreground">{inv.profiles?.full_name || "Unknown"} • {inv.profiles?.phone}</p>
                     <p className="text-xs text-muted-foreground">Invested: {formatNaira(inv.amount)} | ROI: {formatNaira(inv.roi)}</p>
                   </div>
-                  <span className="status-badge-pending text-[10px] font-medium px-2 py-1 rounded-full">Active</span>
+                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${inv.status === "completed" ? "status-badge-completed" : "status-badge-pending"}`}>
+                    {inv.status}
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-3">
                   {new Date(inv.invested_at).toLocaleString("en-NG")}
                 </p>
-                <Button
-                  size="sm"
-                  className="w-full gold-gradient text-primary-foreground font-bold text-xs h-8"
-                  onClick={() => completeInvestment(inv)}
-                  disabled={!!processing}
-                >
-                  <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete & Credit ROI
-                </Button>
+                {inv.status === "active" && (
+                  <Button
+                    size="sm"
+                    className="w-full gold-gradient text-primary-foreground font-bold text-xs h-8"
+                    onClick={() => completeInvestment(inv)}
+                    disabled={!!processing}
+                  >
+                    <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete & Credit ROI
+                  </Button>
+                )}
+                {inv.status === "completed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertInvestment(inv)}
+                    disabled={!!processing}
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Active
+                  </Button>
+                )}
               </div>
             ))}
           </div>
