@@ -5,7 +5,7 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine } from "lucide-react";
+import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 
 type Tab = "deposits" | "withdrawals" | "investments" | "users";
