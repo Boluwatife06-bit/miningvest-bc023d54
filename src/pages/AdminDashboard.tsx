@@ -486,10 +486,10 @@ const AdminDashboard = () => {
         {/* Investments Tab */}
         {tab === "investments" && (
           <div className="space-y-3">
-            {investments.filter((i) => i.status === "active").length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No active investments</p>
+            {investments.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No investments yet</p>
             )}
-            {investments.filter((i) => i.status === "active").map((inv) => (
+            {investments.map((inv) => (
               <div key={inv.id} className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -497,19 +497,34 @@ const AdminDashboard = () => {
                     <p className="text-xs text-muted-foreground">{inv.profiles?.full_name || "Unknown"} • {inv.profiles?.phone}</p>
                     <p className="text-xs text-muted-foreground">Invested: {formatNaira(inv.amount)} | ROI: {formatNaira(inv.roi)}</p>
                   </div>
-                  <span className="status-badge-pending text-[10px] font-medium px-2 py-1 rounded-full">Active</span>
+                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${inv.status === "completed" ? "status-badge-completed" : "status-badge-pending"}`}>
+                    {inv.status}
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-3">
                   {new Date(inv.invested_at).toLocaleString("en-NG")}
                 </p>
-                <Button
-                  size="sm"
-                  className="w-full gold-gradient text-primary-foreground font-bold text-xs h-8"
-                  onClick={() => completeInvestment(inv)}
-                  disabled={!!processing}
-                >
-                  <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete & Credit ROI
-                </Button>
+                {inv.status === "active" && (
+                  <Button
+                    size="sm"
+                    className="w-full gold-gradient text-primary-foreground font-bold text-xs h-8"
+                    onClick={() => completeInvestment(inv)}
+                    disabled={!!processing}
+                  >
+                    <CheckCircle className="w-3 h-3 mr-1" /> Mark Complete & Credit ROI
+                  </Button>
+                )}
+                {inv.status === "completed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertInvestment(inv)}
+                    disabled={!!processing}
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Active
+                  </Button>
+                )}
               </div>
             ))}
           </div>
