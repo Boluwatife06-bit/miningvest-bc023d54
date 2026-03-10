@@ -427,10 +427,10 @@ const AdminDashboard = () => {
         {/* Withdrawals Tab */}
         {tab === "withdrawals" && (
           <div className="space-y-3">
-            {withdrawals.filter((w) => w.status === "pending").length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No pending withdrawals</p>
+            {withdrawals.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No withdrawals yet</p>
             )}
-            {withdrawals.filter((w) => w.status === "pending").map((w) => (
+            {withdrawals.map((w) => (
               <div key={w.id} className="bg-card border border-border rounded-2xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -439,30 +439,45 @@ const AdminDashboard = () => {
                     <p className="text-xs text-muted-foreground">{w.bank_name} • {w.account_number}</p>
                     <p className="text-xs text-muted-foreground">Acct: {w.account_name}</p>
                   </div>
-                  <span className="status-badge-pending text-[10px] font-medium px-2 py-1 rounded-full">Pending</span>
+                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full capitalize ${w.status === "approved" ? "status-badge-completed" : w.status === "rejected" ? "status-badge-rejected" : "status-badge-pending"}`}>
+                    {w.status}
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-3">
                   {new Date(w.created_at).toLocaleString("en-NG")}
                 </p>
-                <div className="flex gap-2">
+                {w.status === "pending" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 gold-gradient text-primary-foreground font-bold text-xs h-8"
+                      onClick={() => approveWithdrawal(w)}
+                      disabled={!!processing}
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="flex-1 font-bold text-xs h-8"
+                      onClick={() => rejectWithdrawal(w.id)}
+                      disabled={!!processing}
+                    >
+                      <XCircle className="w-3 h-3 mr-1" /> Reject
+                    </Button>
+                  </div>
+                )}
+                {(w.status === "approved" || w.status === "rejected") && (
                   <Button
                     size="sm"
-                    className="flex-1 gold-gradient text-primary-foreground font-bold text-xs h-8"
-                    onClick={() => approveWithdrawal(w)}
+                    variant="outline"
+                    className="w-full font-bold text-xs h-8"
+                    onClick={() => revertWithdrawal(w)}
                     disabled={!!processing}
                   >
-                    <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    <Undo2 className="w-3 h-3 mr-1" /> Revert to Pending
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="flex-1 font-bold text-xs h-8"
-                    onClick={() => rejectWithdrawal(w.id)}
-                    disabled={!!processing}
-                  >
-                    <XCircle className="w-3 h-3 mr-1" /> Reject
-                  </Button>
-                </div>
+                )}
               </div>
             ))}
           </div>
