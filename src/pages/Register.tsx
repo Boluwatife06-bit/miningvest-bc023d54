@@ -74,7 +74,7 @@ const Register = () => {
       });
 
       if (profileError) {
-        toast({ title: "Profile creation failed", description: profileError.message, variant: "destructive" });
+        toast({ title: "Profile creation failed", description: "Something went wrong. Please try again.", variant: "destructive" });
         setLoading(false);
         return;
       }
