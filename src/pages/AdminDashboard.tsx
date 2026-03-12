@@ -62,6 +62,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [adjustAmounts, setAdjustAmounts] = useState<Record<string, string>>({});
 
   // Server-side admin verification
   useEffect(() => {
