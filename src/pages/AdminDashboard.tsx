@@ -5,7 +5,8 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2 } from "lucide-react";
+import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2, Plus, Minus } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Navigate } from "react-router-dom";
 
 type Tab = "deposits" | "withdrawals" | "investments" | "users";
@@ -61,6 +62,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [adjustAmounts, setAdjustAmounts] = useState<Record<string, string>>({});
 
   // Server-side admin verification
   useEffect(() => {
@@ -522,18 +524,67 @@ const AdminDashboard = () => {
         {/* Users Tab */}
         {tab === "users" && (
           <div className="space-y-2">
-            {users.map((u) => (
-              <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
-                  <p className="text-xs text-muted-foreground">{u.phone}</p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+            {users.map((u) => {
+              const amt = adjustAmounts[u.id] || "";
+              const parsedAmt = parseInt(amt, 10);
+              const isValid = !isNaN(parsedAmt) && parsedAmt > 0;
+
+              const handleAdjust = async (direction: 1 | -1) => {
+                if (!isValid || processing) return;
+                setProcessing(u.id);
+                const success = await adjustBalance(u.id, parsedAmt * direction);
+                if (success) {
+                  toast({ title: `${direction === 1 ? "Added" : "Deducted"} ${formatNaira(parsedAmt)} ${direction === 1 ? "to" : "from"} ${u.full_name || u.phone}'s balance ✅` });
+                  setAdjustAmounts((prev) => ({ ...prev, [u.id]: "" }));
+                  fetchUsers();
+                } else {
+                  toast({ title: "Failed", description: direction === -1 ? "User may have insufficient balance." : "Could not update balance.", variant: "destructive" });
+                }
+                setProcessing(null);
+              };
+
+              return (
+                <div key={u.id} className="bg-card border border-border rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
+                      <p className="text-xs text-muted-foreground">{u.phone}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      type="number"
+                      placeholder="Amount (₦)"
+                      value={amt}
+                      onChange={(e) => setAdjustAmounts((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                      className="h-8 text-xs flex-1"
+                      min={1}
+                    />
+                    <Button
+                      size="sm"
+                      className="gold-gradient text-primary-foreground font-bold text-xs h-8 px-3"
+                      onClick={() => handleAdjust(1)}
+                      disabled={!isValid || !!processing}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="font-bold text-xs h-8 px-3"
+                      onClick={() => handleAdjust(-1)}
+                      disabled={!isValid || !!processing}
+                    >
+                      <Minus className="w-3 h-3 mr-1" /> Deduct
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
