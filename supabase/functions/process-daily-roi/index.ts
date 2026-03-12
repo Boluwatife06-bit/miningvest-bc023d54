@@ -5,9 +5,12 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (req) => {
   try {
-    // Auth check: require CRON_SECRET
-    const cronSecret = req.headers.get("x-cron-secret") || req.headers.get("authorization")?.replace("Bearer ", "");
-    if (cronSecret !== Deno.env.get("CRON_SECRET")) {
+    // Auth check: require CRON_SECRET via header
+    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
+    const cronHeader = req.headers.get("x-cron-secret");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+
+    if ((cronHeader || authHeader) !== cronSecret) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
@@ -26,6 +29,7 @@ Deno.serve(async (req) => {
     }
 
     let processed = 0;
+    const errors: string[] = [];
 
     for (const inv of investments) {
       // Idempotency: skip if already paid today
@@ -47,23 +51,26 @@ Deno.serve(async (req) => {
       const newRoiPaid = (inv.roi_paid || 0) + credit;
       const isComplete = newRoiPaid >= inv.roi;
 
-      // Atomically credit balance
-      const { error: balErr } = await supabase.rpc("admin_adjust_balance", {
-        p_user_id: inv.user_id,
-        p_amount: credit,
-      });
+      // Credit balance using service role (bypasses RLS)
+      const { data: profile, error: fetchProfileErr } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("user_id", inv.user_id)
+        .single();
 
-      // Fallback: direct update if RPC not callable with service role
+      if (fetchProfileErr || !profile) {
+        errors.push(`Profile not found for user ${inv.user_id}`);
+        continue;
+      }
+
+      const { error: balErr } = await supabase
+        .from("profiles")
+        .update({ balance: profile.balance + credit, updated_at: new Date().toISOString() })
+        .eq("user_id", inv.user_id);
+
       if (balErr) {
-        const { error: directErr } = await supabase
-          .from("profiles")
-          .update({ balance: supabase.rpc ? undefined : undefined })
-          .eq("user_id", inv.user_id);
-        // Use raw SQL-style atomic update via service role
-        await supabase
-          .from("profiles")
-          .update({ balance: (await supabase.from("profiles").select("balance").eq("user_id", inv.user_id).single()).data?.balance + credit })
-          .eq("user_id", inv.user_id);
+        errors.push(`Balance update failed for user ${inv.user_id}: ${balErr.message}`);
+        continue;
       }
 
       const updateData: Record<string, unknown> = {
@@ -79,7 +86,10 @@ Deno.serve(async (req) => {
       processed++;
     }
 
-    return new Response(JSON.stringify({ message: `Processed ${processed} investments` }), { status: 200 });
+    return new Response(
+      JSON.stringify({ message: `Processed ${processed} investments`, errors }),
+      { status: 200 }
+    );
   } catch (error) {
     return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
   }
