@@ -57,7 +57,6 @@ export type Database = {
           created_at: string
           id: string
           invested_at: string
-          last_roi_date: string | null
           product_id: string
           roi: number
           roi_paid: number
@@ -70,7 +69,6 @@ export type Database = {
           created_at?: string
           id?: string
           invested_at?: string
-          last_roi_date?: string | null
           product_id: string
           roi: number
           roi_paid?: number
@@ -83,7 +81,6 @@ export type Database = {
           created_at?: string
           id?: string
           invested_at?: string
-          last_roi_date?: string | null
           product_id?: string
           roi?: number
           roi_paid?: number
@@ -243,10 +240,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_adjust_balance: {
-        Args: { p_amount: number; p_user_id: string }
-        Returns: Json
-      }
       generate_referral_code: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -255,7 +248,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      place_investment: { Args: { p_product_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
