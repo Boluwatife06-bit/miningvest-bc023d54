@@ -5,7 +5,8 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2 } from "lucide-react";
+import { ShieldCheck, Users, Wallet, BarChart3, CheckCircle, XCircle, ArrowUpFromLine, Undo2, Plus, Minus } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Navigate } from "react-router-dom";
 
 type Tab = "deposits" | "withdrawals" | "investments" | "users";
@@ -34,10 +35,10 @@ interface AdminInvestment {
 
 interface AdminUser {
   id: string;
+  user_id: string;
   phone: string;
   full_name: string | null;
   balance: number;
-  
   created_at: string;
 }
 
@@ -61,6 +62,8 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [adjustUserId, setAdjustUserId] = useState<string | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
 
   const fetchDeposits = async () => {
     const { data: deps } = await supabase
@@ -314,6 +317,29 @@ const AdminDashboard = () => {
     setProcessing(null);
   };
 
+  const adjustBalance = async (userId: string, amount: number) => {
+    if (processing || amount === 0) return;
+    setProcessing(userId);
+    const { data, error } = await supabase.rpc("admin_adjust_balance", {
+      p_user_id: userId,
+      p_amount: amount,
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else if (data && typeof data === "object" && "success" in data) {
+      const result = data as { success: boolean; error?: string; new_balance?: number };
+      if (!result.success) {
+        toast({ title: "Failed", description: result.error || "Unknown error", variant: "destructive" });
+      } else {
+        toast({ title: `Balance updated — New balance: ${formatNaira(result.new_balance || 0)} ✅` });
+        setAdjustUserId(null);
+        setAdjustAmount("");
+        fetchUsers();
+      }
+    }
+    setProcessing(null);
+  };
+
   const stats = {
     totalUsers: users.length,
     pendingDeposits: deposits.filter((d) => d.status === "pending").length,
@@ -534,16 +560,54 @@ const AdminDashboard = () => {
         {tab === "users" && (
           <div className="space-y-2">
             {users.map((u) => (
-              <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
-                  <p className="text-xs text-muted-foreground">{u.phone}</p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+              <div key={u.id} className="bg-card border border-border rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
+                    <p className="text-xs text-muted-foreground">{u.phone}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
+                    <button
+                      className="text-[10px] text-muted-foreground underline mt-1"
+                      onClick={() => {
+                        setAdjustUserId(adjustUserId === u.user_id ? null : u.user_id);
+                        setAdjustAmount("");
+                      }}
+                    >
+                      {adjustUserId === u.user_id ? "Cancel" : "Adjust Balance"}
+                    </button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
-                  
-                </div>
+                {adjustUserId === u.user_id && (
+                  <div className="mt-3 flex gap-2 items-center">
+                    <Input
+                      type="number"
+                      placeholder="Amount"
+                      value={adjustAmount}
+                      onChange={(e) => setAdjustAmount(e.target.value)}
+                      className="h-8 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gold-gradient text-primary-foreground font-bold"
+                      onClick={() => adjustBalance(u.user_id, Math.abs(Number(adjustAmount)))}
+                      disabled={!!processing || !adjustAmount || Number(adjustAmount) <= 0}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs font-bold"
+                      onClick={() => adjustBalance(u.user_id, -Math.abs(Number(adjustAmount)))}
+                      disabled={!!processing || !adjustAmount || Number(adjustAmount) <= 0}
+                    >
+                      <Minus className="w-3 h-3 mr-1" /> Deduct
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
