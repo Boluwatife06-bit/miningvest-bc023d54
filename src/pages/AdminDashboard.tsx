@@ -35,10 +35,10 @@ interface AdminInvestment {
 
 interface AdminUser {
   id: string;
+  user_id: string;
   phone: string;
   full_name: string | null;
   balance: number;
-  
   created_at: string;
 }
 
