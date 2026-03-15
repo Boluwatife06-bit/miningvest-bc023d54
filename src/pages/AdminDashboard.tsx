@@ -317,6 +317,29 @@ const AdminDashboard = () => {
     setProcessing(null);
   };
 
+  const adjustBalance = async (userId: string, amount: number) => {
+    if (processing || amount === 0) return;
+    setProcessing(userId);
+    const { data, error } = await supabase.rpc("admin_adjust_balance", {
+      p_user_id: userId,
+      p_amount: amount,
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else if (data && typeof data === "object" && "success" in data) {
+      const result = data as { success: boolean; error?: string; new_balance?: number };
+      if (!result.success) {
+        toast({ title: "Failed", description: result.error || "Unknown error", variant: "destructive" });
+      } else {
+        toast({ title: `Balance updated — New balance: ${formatNaira(result.new_balance || 0)} ✅` });
+        setAdjustUserId(null);
+        setAdjustAmount("");
+        fetchUsers();
+      }
+    }
+    setProcessing(null);
+  };
+
   const stats = {
     totalUsers: users.length,
     pendingDeposits: deposits.filter((d) => d.status === "pending").length,
