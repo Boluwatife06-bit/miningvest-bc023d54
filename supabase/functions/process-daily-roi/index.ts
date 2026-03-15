@@ -39,20 +39,11 @@ Deno.serve(async (req) => {
       const newRoiPaid = (inv.roi_paid || 0) + credit;
       const isComplete = newRoiPaid >= inv.roi;
 
-      // Get user's current balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("user_id", inv.user_id)
-        .single();
-
-      if (!profile) continue;
-
-      // Credit balance and update roi_paid
-      const { error: balErr } = await supabase
-        .from("profiles")
-        .update({ balance: profile.balance + credit })
-        .eq("user_id", inv.user_id);
+      // Atomically credit balance to prevent race conditions
+      const { error: balErr } = await supabase.rpc("atomic_credit_balance", {
+        p_user_id: inv.user_id,
+        p_amount: credit,
+      });
 
       if (balErr) continue;
 
