@@ -71,7 +71,7 @@ const Deposit = () => {
     });
 
     if (error) {
-      toast({ title: "Submission failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      toast({ title: "Submission failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Deposit request submitted! ✅", description: "Admin will approve within 24 hours" });
       setAmount("");

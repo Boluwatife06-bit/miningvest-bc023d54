@@ -5,17 +5,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (req) => {
   try {
-    // Auth check: require CRON_SECRET via header
-    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
-    const cronHeader = req.headers.get("x-cron-secret");
-    const cronSecret = Deno.env.get("CRON_SECRET");
-
-    if ((cronHeader || authHeader) !== cronSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     // Get all active investments with their product duration
     const { data: investments, error: fetchError } = await supabase
@@ -29,17 +19,14 @@ Deno.serve(async (req) => {
     }
 
     let processed = 0;
-    const errors: string[] = [];
 
     for (const inv of investments) {
-      // Idempotency: skip if already paid today
-      if (inv.last_roi_date === today) continue;
-
       const durationDays = inv.products?.duration_days || 30;
       const dailyRoi = Math.floor(inv.roi / durationDays);
       const remaining = inv.roi - (inv.roi_paid || 0);
 
       if (remaining <= 0) {
+        // Already fully paid, mark completed
         await supabase
           .from("investments")
           .update({ status: "completed", completed_at: new Date().toISOString() })
@@ -47,36 +34,29 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Credit is either dailyRoi or remaining (whichever is smaller, to not overpay)
       const credit = Math.min(dailyRoi, remaining);
       const newRoiPaid = (inv.roi_paid || 0) + credit;
       const isComplete = newRoiPaid >= inv.roi;
 
-      // Credit balance using service role (bypasses RLS)
-      const { data: profile, error: fetchProfileErr } = await supabase
+      // Get user's current balance
+      const { data: profile } = await supabase
         .from("profiles")
         .select("balance")
         .eq("user_id", inv.user_id)
         .single();
 
-      if (fetchProfileErr || !profile) {
-        errors.push(`Profile not found for user ${inv.user_id}`);
-        continue;
-      }
+      if (!profile) continue;
 
+      // Credit balance and update roi_paid
       const { error: balErr } = await supabase
         .from("profiles")
-        .update({ balance: profile.balance + credit, updated_at: new Date().toISOString() })
+        .update({ balance: profile.balance + credit })
         .eq("user_id", inv.user_id);
 
-      if (balErr) {
-        errors.push(`Balance update failed for user ${inv.user_id}: ${balErr.message}`);
-        continue;
-      }
+      if (balErr) continue;
 
-      const updateData: Record<string, unknown> = {
-        roi_paid: newRoiPaid,
-        last_roi_date: today,
-      };
+      const updateData: Record<string, unknown> = { roi_paid: newRoiPaid };
       if (isComplete) {
         updateData.status = "completed";
         updateData.completed_at = new Date().toISOString();
@@ -86,11 +66,8 @@ Deno.serve(async (req) => {
       processed++;
     }
 
-    return new Response(
-      JSON.stringify({ message: `Processed ${processed} investments`, errors }),
-      { status: 200 }
-    );
+    return new Response(JSON.stringify({ message: `Processed ${processed} investments` }), { status: 200 });
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 });

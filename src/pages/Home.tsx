@@ -35,19 +35,26 @@ const Home = () => {
     }
     setInvesting(product.id);
 
-    const { data, error } = await supabase.rpc("place_investment", {
-      p_product_id: product.id,
-    });
-
-    if (error) {
-      toast({ title: "Investment failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+    const newBalance = profile.balance - product.price;
+    const { error: balanceError } = await supabase.from("profiles").update({ balance: newBalance }).eq("user_id", profile.user_id);
+    if (balanceError) {
+      toast({ title: "Investment failed", description: balanceError.message, variant: "destructive" });
       setInvesting(null);
       return;
     }
 
-    const result = data as { success: boolean; error?: string };
-    if (!result.success) {
-      toast({ title: "Investment failed", description: result.error === "Insufficient balance" ? `You need ${formatNaira(product.price)} to invest.` : "Something went wrong. Please try again.", variant: "destructive" });
+    const { error: investError } = await supabase.from("investments").insert({
+      user_id: profile.user_id,
+      product_id: product.id,
+      amount: product.price,
+      roi: product.roi,
+      status: "active",
+    });
+
+    if (investError) {
+      // Rollback
+      await supabase.from("profiles").update({ balance: profile.balance }).eq("user_id", profile.user_id);
+      toast({ title: "Investment failed", description: investError.message, variant: "destructive" });
     } else {
       toast({ title: "Investment successful! 🎉", description: `You invested in ${product.name}. ROI of ${formatNaira(product.roi)} pending.` });
       refreshProfile();

@@ -66,7 +66,7 @@ const Withdrawal = () => {
     });
 
     if (error) {
-      toast({ title: "Submission failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      toast({ title: "Submission failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Withdrawal request submitted! ✅", description: "Admin will process within 24 hours" });
       setAmount("");

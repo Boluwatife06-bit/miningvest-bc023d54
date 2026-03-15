@@ -58,7 +58,7 @@ const Register = () => {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      toast({ title: "Registration failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -74,7 +74,7 @@ const Register = () => {
       });
 
       if (profileError) {
-        toast({ title: "Profile creation failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+        toast({ title: "Profile creation failed", description: profileError.message, variant: "destructive" });
         setLoading(false);
         return;
       }
