@@ -560,16 +560,54 @@ const AdminDashboard = () => {
         {tab === "users" && (
           <div className="space-y-2">
             {users.map((u) => (
-              <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
-                  <p className="text-xs text-muted-foreground">{u.phone}</p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+              <div key={u.id} className="bg-card border border-border rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">{u.full_name || "No name"}</p>
+                    <p className="text-xs text-muted-foreground">{u.phone}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(u.created_at).toLocaleDateString("en-NG")}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
+                    <button
+                      className="text-[10px] text-muted-foreground underline mt-1"
+                      onClick={() => {
+                        setAdjustUserId(adjustUserId === u.user_id ? null : u.user_id);
+                        setAdjustAmount("");
+                      }}
+                    >
+                      {adjustUserId === u.user_id ? "Cancel" : "Adjust Balance"}
+                    </button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{formatNaira(u.balance)}</p>
-                  
-                </div>
+                {adjustUserId === u.user_id && (
+                  <div className="mt-3 flex gap-2 items-center">
+                    <Input
+                      type="number"
+                      placeholder="Amount"
+                      value={adjustAmount}
+                      onChange={(e) => setAdjustAmount(e.target.value)}
+                      className="h-8 text-xs flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gold-gradient text-primary-foreground font-bold"
+                      onClick={() => adjustBalance(u.user_id, Math.abs(Number(adjustAmount)))}
+                      disabled={!!processing || !adjustAmount || Number(adjustAmount) <= 0}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-8 text-xs font-bold"
+                      onClick={() => adjustBalance(u.user_id, -Math.abs(Number(adjustAmount)))}
+                      disabled={!!processing || !adjustAmount || Number(adjustAmount) <= 0}
+                    >
+                      <Minus className="w-3 h-3 mr-1" /> Deduct
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
