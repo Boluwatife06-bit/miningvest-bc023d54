@@ -62,6 +62,8 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [adjustUserId, setAdjustUserId] = useState<string | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
 
   const fetchDeposits = async () => {
     const { data: deps } = await supabase
