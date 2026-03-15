@@ -5,7 +5,14 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (req) => {
   try {
-    // Idempotent function — safe to call multiple times per day
+    // Auth check: require CRON_SECRET via header
+    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
+    const cronHeader = req.headers.get("x-cron-secret");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+
+    if ((cronHeader || authHeader) !== cronSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
