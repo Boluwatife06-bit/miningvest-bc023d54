@@ -35,7 +35,7 @@ const Profile = () => {
     }).eq("user_id", profile.user_id);
 
     if (error) {
-      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to save", description: "Could not update your profile. Please try again.", variant: "destructive" });
     } else {
       toast({ title: "Profile updated ✅" });
       refreshProfile();
