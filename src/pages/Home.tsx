@@ -119,6 +119,24 @@ const Home = () => {
         </div>
       </div>
 
+      {/* Deposit Required Banner */}
+      {needsDeposit && (
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-card border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-destructive" />
+            <h3 className="font-bold text-foreground text-sm">Deposit Required</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Your previous investment has completed. Please make a deposit before investing again.
+          </p>
+          <Link to="/deposit">
+            <Button className="w-full gold-gradient text-primary-foreground font-bold">
+              Go to Deposit
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Products */}
       <div className="px-4 mt-6">
         <h3 className="text-lg font-bold text-foreground mb-3">Investment Plans</h3>
@@ -156,9 +174,9 @@ const Home = () => {
                 <Button
                   className="w-full gold-gradient text-primary-foreground font-bold"
                   onClick={() => handleInvest(product)}
-                  disabled={investing === product.id}
+                  disabled={investing === product.id || needsDeposit}
                 >
-                  {investing === product.id ? "Processing..." : "Invest Now"}
+                  {investing === product.id ? "Processing..." : needsDeposit ? "Deposit First" : "Invest Now"}
                 </Button>
               </div>
             );
