@@ -13,6 +13,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Verify cron secret to prevent unauthorized invocations
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const providedSecret = req.headers.get("x-cron-secret");
+  if (!cronSecret || providedSecret !== cronSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
@@ -93,12 +103,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: `Processed ${processed}, skipped ${skipped} (already paid today)` }),
+      JSON.stringify({ message: `Processed ${processed}, skipped ${skipped}` }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("process-daily-roi error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
