@@ -5,7 +5,8 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { Pickaxe, TrendingUp, Users, Zap } from "lucide-react";
+import { Pickaxe, TrendingUp, Users, Zap, AlertCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 interface Product {
@@ -20,12 +21,45 @@ const Home = () => {
   const { profile, refreshProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [investing, setInvesting] = useState<string | null>(null);
+  const [needsDeposit, setNeedsDeposit] = useState(false);
 
   useEffect(() => {
     supabase.from("products").select("*").eq("is_active", true).order("sort_order").then(({ data }) => {
       if (data) setProducts(data);
     });
   }, []);
+
+  // Check if user has completed investments and needs to deposit before re-investing
+  useEffect(() => {
+    if (!profile) return;
+    const checkDepositRequired = async () => {
+      // Get latest completed investment
+      const { data: completedInv } = await supabase
+        .from("investments")
+        .select("completed_at")
+        .eq("user_id", profile.user_id)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(1);
+
+      if (!completedInv || completedInv.length === 0) {
+        setNeedsDeposit(false);
+        return;
+      }
+
+      // Get latest approved deposit after the completed investment
+      const { data: recentDeposit } = await supabase
+        .from("deposits")
+        .select("created_at")
+        .eq("user_id", profile.user_id)
+        .eq("status", "approved")
+        .gt("created_at", completedInv[0].completed_at!)
+        .limit(1);
+
+      setNeedsDeposit(!recentDeposit || recentDeposit.length === 0);
+    };
+    checkDepositRequired();
+  }, [profile]);
 
   const handleInvest = async (product: Product) => {
     if (!profile) return;
@@ -85,6 +119,24 @@ const Home = () => {
         </div>
       </div>
 
+      {/* Deposit Required Banner */}
+      {needsDeposit && (
+        <div className="mx-4 mt-4 p-4 rounded-2xl bg-card border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-destructive" />
+            <h3 className="font-bold text-foreground text-sm">Deposit Required</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Your previous investment has completed. Please make a deposit before investing again.
+          </p>
+          <Link to="/deposit">
+            <Button className="w-full gold-gradient text-primary-foreground font-bold">
+              Go to Deposit
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Products */}
       <div className="px-4 mt-6">
         <h3 className="text-lg font-bold text-foreground mb-3">Investment Plans</h3>
@@ -122,9 +174,9 @@ const Home = () => {
                 <Button
                   className="w-full gold-gradient text-primary-foreground font-bold"
                   onClick={() => handleInvest(product)}
-                  disabled={investing === product.id}
+                  disabled={investing === product.id || needsDeposit}
                 >
-                  {investing === product.id ? "Processing..." : "Invest Now"}
+                  {investing === product.id ? "Processing..." : needsDeposit ? "Deposit First" : "Invest Now"}
                 </Button>
               </div>
             );

@@ -45,8 +45,8 @@ const Withdrawal = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseInt(amount, 10);
-    if (!amountNum || amountNum < 10000) {
-      toast({ title: "Invalid amount", description: "Minimum withdrawal is ₦10,000", variant: "destructive" });
+    if (!amountNum || amountNum < 15000) {
+      toast({ title: "Invalid amount", description: "Minimum withdrawal is ₦15,000", variant: "destructive" });
       return;
     }
     if (amountNum > (profile?.balance ?? 0)) {
@@ -153,7 +153,7 @@ const Withdrawal = () => {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="mt-1.5 bg-secondary border-border text-foreground placeholder:text-muted-foreground input-gold"
-                    min="100"
+                    min="15000"
                     max={profile?.balance ?? 0}
                   />
                 </div>
