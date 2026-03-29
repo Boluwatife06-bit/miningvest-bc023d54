@@ -5,7 +5,8 @@ import { formatNaira } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import BottomNav from "@/components/BottomNav";
-import { Pickaxe, TrendingUp, Users, Zap } from "lucide-react";
+import { Pickaxe, TrendingUp, Users, Zap, AlertCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 interface Product {
@@ -20,12 +21,45 @@ const Home = () => {
   const { profile, refreshProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [investing, setInvesting] = useState<string | null>(null);
+  const [needsDeposit, setNeedsDeposit] = useState(false);
 
   useEffect(() => {
     supabase.from("products").select("*").eq("is_active", true).order("sort_order").then(({ data }) => {
       if (data) setProducts(data);
     });
   }, []);
+
+  // Check if user has completed investments and needs to deposit before re-investing
+  useEffect(() => {
+    if (!profile) return;
+    const checkDepositRequired = async () => {
+      // Get latest completed investment
+      const { data: completedInv } = await supabase
+        .from("investments")
+        .select("completed_at")
+        .eq("user_id", profile.user_id)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(1);
+
+      if (!completedInv || completedInv.length === 0) {
+        setNeedsDeposit(false);
+        return;
+      }
+
+      // Get latest approved deposit after the completed investment
+      const { data: recentDeposit } = await supabase
+        .from("deposits")
+        .select("created_at")
+        .eq("user_id", profile.user_id)
+        .eq("status", "approved")
+        .gt("created_at", completedInv[0].completed_at!)
+        .limit(1);
+
+      setNeedsDeposit(!recentDeposit || recentDeposit.length === 0);
+    };
+    checkDepositRequired();
+  }, [profile]);
 
   const handleInvest = async (product: Product) => {
     if (!profile) return;
