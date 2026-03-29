@@ -1,97 +1,29 @@
 
-# Withdrawal System
 
-## Overview
-Add a withdrawal feature where users can request to withdraw their balance to their saved bank account. Admins will review and approve/reject withdrawal requests, similar to the existing deposit flow.
+## Plan: Update Withdrawal Minimum & Remove Auto-Rollover
 
-## What Will Change
+### Changes
 
-### 1. New Database Table: `withdrawals`
-A new table to track withdrawal requests with columns:
-- `id` (UUID, primary key)
-- `user_id` (UUID, references auth.users)
-- `amount` (bigint)
-- `bank_name` (text) -- snapshot at time of request
-- `account_number` (text)
-- `account_name` (text)
-- `status` (text: pending/approved/rejected)
-- `admin_note` (text, optional)
-- `created_at`, `updated_at` (timestamps)
+**1. Update minimum withdrawal to ₦15,000**
+- **`src/pages/Withdrawal.tsx`**: Change the validation check from `10000` to `15000` and update the toast message to say "Minimum withdrawal is ₦15,000". Also update the `min` attribute on the input.
 
-RLS policies:
-- Users can create their own withdrawals
-- Users can view their own withdrawals
-- Admins can view and update all withdrawals
+**2. Remove auto-rollover on investment completion**
+The current `process-daily-roi` edge function already does NOT auto-rollover — it simply marks investments as "completed" when ROI is fully paid. No changes needed there.
 
-### 2. New Page: Withdrawal (`src/pages/Withdrawal.tsx`)
-- Shows current balance at top
-- Withdrawal form: amount input (validated against balance, minimum amount)
-- Displays user's saved bank details (from profile) -- prompts to update profile if missing
-- Withdrawal history list with status badges (pending/approved/rejected)
-- Same styling patterns as the Deposit page
+However, the `place_investment` RPC currently allows investing as long as user has sufficient balance (including from ROI credits). To enforce "must deposit to invest again after completion," we need a different approach:
 
-### 3. Updated Bottom Navigation
-- Add a "Withdraw" nav item (using `ArrowUpFromLine` or `BanknoteIcon` icon) between Deposit and Investments
+- **Option A (Simple UI guard)**: On the Home page, check if the user has any completed investments AND no deposits made after the last completed investment. If so, show a message prompting them to deposit first.
+- **Option B (Database enforcement)**: Add a check in the `place_investment` RPC to verify the user has made a deposit since their last completed investment.
 
-### 4. Updated Admin Dashboard
-- Add a "Withdrawals" tab alongside Deposits, Investments, Users
-- Shows pending withdrawal requests with user info and bank details
-- Approve button: deducts amount from user balance, marks as approved
-- Reject button: marks as rejected (no balance change)
-- Stats card updated to show pending withdrawals count
+**Recommended: Option A** — simpler, less migration risk. The Home page will query whether the user has completed investments and compare against their latest deposit timestamp. If they need to deposit first, the "Invest Now" button will be disabled with a message.
 
-### 5. Route Registration
-- Add `/withdraw` route in `App.tsx` as a protected route
+### Files to modify
+1. **`src/pages/Withdrawal.tsx`** — Change min amount from 10,000 to 15,000
+2. **`src/pages/Home.tsx`** — Add logic to check if user has completed investments and needs to deposit before re-investing; disable invest buttons with a prompt if so
 
-## Withdrawal Logic
-- User enters amount to withdraw
-- Client-side validation: amount > 0, amount <= balance, bank details must be saved in profile
-- On submit: creates a `withdrawals` row with status "pending" and snapshots bank details
-- Admin approves: deducts the amount from user's balance and marks status "approved"
-- Admin rejects: marks status "rejected", balance unchanged
+### Technical details
+- Query `investments` table for any `status = 'completed'` records for the user
+- Query `deposits` table for the latest `status = 'approved'` deposit timestamp
+- If latest completed investment is more recent than latest approved deposit, block investing with a message like "Please make a deposit before investing again"
+- First-time users (no completed investments) can invest normally
 
-## Technical Details
-
-### Database Migration SQL
-```sql
-CREATE TABLE public.withdrawals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  amount BIGINT NOT NULL,
-  bank_name TEXT NOT NULL,
-  account_number TEXT NOT NULL,
-  account_name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  admin_note TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can create own withdrawals" ON public.withdrawals
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own withdrawals" ON public.withdrawals
-  FOR SELECT TO authenticated USING (auth.uid() = user_id);
-
-CREATE POLICY "Admins can view all withdrawals" ON public.withdrawals
-  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can update withdrawals" ON public.withdrawals
-  FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-
--- Trigger for updated_at
-CREATE TRIGGER update_withdrawals_updated_at
-  BEFORE UPDATE ON public.withdrawals
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-```
-
-### Files to Create
-- `src/pages/Withdrawal.tsx` -- withdrawal form + history (mirrors Deposit page pattern)
-
-### Files to Modify
-- `src/App.tsx` -- add `/withdraw` route
-- `src/components/BottomNav.tsx` -- add Withdraw nav item
-- `src/pages/AdminDashboard.tsx` -- add Withdrawals tab with approve/reject logic
